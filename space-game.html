@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Space Explorer 3D - استكشف الكواكب</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+        body { background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+        #gameContainer { position: relative; width: 100vw; height: 100vh; max-width: 1000px; max-height: 800px; background: #000; overflow: hidden; touch-action: none; box-shadow: 0 0 50px rgba(0, 100, 255, 0.2); }
+        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+        
+        /* HUD */
+        #ui { position: absolute; top: 0; left: 0; width: 100%; padding: 15px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
+        .hud { background: rgba(0, 0, 0, 0.7); border: 2px solid #00c8ff; border-radius: 8px; padding: 10px 15px; color: #00c8ff; font-size: 16px; font-weight: bold; font-family: monospace; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px); }
+        
+        /* سرعة الصاروخ */
+        #speedContainer { position: absolute; bottom: 30px; left: 30px; width: 200px; background: rgba(0,0,0,0.6); border: 1px solid #00c8ff; border-radius: 8px; padding: 5px; pointer-events: none; z-index: 10;}
+        #speedBar { height: 10px; background: #00c8ff; width: 0%; border-radius: 4px; transition: width 0.1s; box-shadow: 0 0 10px #00c8ff; }
+        #speedText { color: #fff; font-size: 12px; text-align: center; margin-top: 5px; font-family: monospace; }
+
+        /* شاشة البداية */
+        #startScreen { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: #fff; text-align: center; padding: 20px; backdrop-filter: blur(10px); }
+        h1 { font-size: 42px; color: #00c8ff; text-shadow: 0 0 30px #00c8ff; margin-bottom: 10px; font-family: Impact, sans-serif; letter-spacing: 2px; }
+        .subtitle { font-size: 18px; color: #ccc; margin-bottom: 20px; }
+        .controls-info { background: rgba(0, 200, 255, 0.1); border: 1px solid #00c8ff; padding: 15px; border-radius: 10px; margin-bottom: 30px; line-height: 1.8; text-align: right; color: #e0e0e0; }
+        button { padding: 15px 60px; font-size: 22px; font-weight: bold; background: linear-gradient(135deg, #00c8ff, #0066ff); border: none; border-radius: 8px; color: #fff; cursor: pointer; pointer-events: all; font-family: inherit; box-shadow: 0 0 20px rgba(0, 200, 255, 0.5); }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div class="hud" id="planetHud">🪐 أقرب كوكب: لا يوجد</div>
+            <div class="hud" id="distanceHud">📏 المسافة: 0</div>
+        </div>
+
+        <div id="speedContainer">
+            <div id="speedBar"></div>
+            <div id="speedText">السرعة: 0%</div>
+        </div>
+
+        <div id="startScreen">
+            <h1>SPACE EXPLORER 3D</h1>
+            <div class="subtitle">استكشف النظام الشمسي والكواكب</div>
+            <div class="controls-info">
+                <b>⌨️ الكمبيوتر:</b><br>
+                W / S = تسريع / تباطؤ<br>
+                A / D = الدوران يمين / يسار<br>
+                <i>أو استخدم أسهم الكيبورد</i><br><br>
+                <b>📱 الهاتف:</b><br>
+                اسحب إصبعك على الشاشة للتحكم
+            </div>
+            <button id="startBtn">🚀 انطلق إلى الفضاء</button>
+        </div>
+    </div>
+
+    <!-- استدعاء مكتبة Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas');
+            const container = document.getElementById('gameContainer');
+            const startScreen = document.getElementById('startScreen');
+            const startBtn = document.getElementById('startBtn');
+            const planetHud = document.getElementById('planetHud');
+            const distanceHud = document.getElementById('distanceHud');
+            const speedBar = document.getElementById('speedBar');
+            const speedText = document.getElementById('speedText');
+
+            let W, H;
+            let gameState = 'start';
+
+            // --- إعداد مشهد Three.js ---
+            const scene = new THREE.Scene();
+            // خلفية فضائية سوداء
+            scene.background = new THREE.Color(0x000005); 
+
+            const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 20000);
+            
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+
+            // إضاءة
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+            scene.add(ambientLight);
+
+            // ضوء الشمس
+            const sunLight = new THREE.PointLight(0xffdd99, 2, 5000);
+            sunLight.position.set(0, 0, 0);
+            scene.add(sunLight);
+
+            // --- بناء النظام الشمسي ---
+            const planets = [];
+            const planetData = [
+                { name: 'الشمس', color: 0xffaa00, size: 20, dist: 0, speed: 0 },
+                { name: 'عطارد', color: 0xaaaaaa, size: 2, dist: 80, speed: 0.02 },
+                { name: 'الزهرة', color: 0xffcc88, size: 4, dist: 130, speed: 0.015 },
+                { name: 'الأرض', color: 0x2299ff, size: 4.5, dist: 190, speed: 0.01 },
+                { name: 'المريخ', color: 0xcc3311, size: 3, dist: 250, speed: 0.008 },
+                { name: 'المشتري', color: 0xddbb99, size: 10, dist: 350, speed: 0.005 },
+                { name: 'زحل', color: 0xeeddbb, size: 8, dist: 480, speed: 0.004, hasRing: true },
+                { name: 'أورانوس', color: 0x88ccff, size: 6, dist: 600, speed: 0.003 },
+                { name: 'نبتون', color: 0x3355ff, size: 5.5, dist: 720, speed: 0.002 }
+            ];
+
+            // إنشاء الكواكب
+            planetData.forEach((data, index) => {
+                const geo = new THREE.SphereGeometry(data.size, 32, 32);
+                const mat = new THREE.MeshStandardMaterial({ 
+                    color: data.color, 
+                    roughness: 0.7,
+                    emissive: data.name === 'الشمس' ? 0xffaa00 : 0x000000,
+                    emissiveIntensity: data.name === 'الشمس' ? 1 : 0
+                });
+                const planet = new THREE.Mesh(geo, mat);
+                
+                // إضافة حلقات لزحل
+                if (data.hasRing) {
+                    const ringGeo = new THREE.RingGeometry(data.size * 1.4, data.size * 2.2, 64);
+                    const ringMat = new THREE.MeshBasicMaterial({ color: 0xccbb99, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+                    const ring = new THREE.Mesh(ringGeo, ringMat);
+                    ring.rotation.x = Math.PI / 2 + 0.3; // ميلان الحلقة
+                    planet.add(ring);
+                }
+
+                // موضع أولي
+                planet.position.x = data.dist;
+                
+                scene.add(planet);
+                planets.push({
+                    mesh: planet,
+                    data: data,
+                    angle: Math.random() * Math.PI * 2
+                });
+            });
+
+            // --- النجوم (خلفية) ---
+            const starsGeo = new THREE.BufferGeometry();
+            const starsCount = 4000;
+            const starsPositions = new Float32Array(starsCount * 3);
+            for(let i = 0; i < starsCount * 3; i += 3) {
+                starsPositions[i] = (Math.random() - 0.5) * 8000;
+                starsPositions[i+1] = (Math.random() - 0.5) * 8000;
+                starsPositions[i+2] = (Math.random() - 0.5) * 8000;
+            }
+            starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPositions, 3));
+            const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: true });
+            const stars = new THREE.Points(starsGeo, starsMat);
+            scene.add(stars);
+
+            // --- الصاروخ ---
+            const rocketGroup = new THREE.Group();
+            
+            // جسم الصاروخ
+            const rocketBodyGeo = new THREE.CylinderGeometry(0.8, 0.8, 4, 16);
+            const rocketBodyMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+            const rocketBody = new THREE.Mesh(rocketBodyGeo, rocketBodyMat);
+            rocketBody.rotation.x = Math.PI / 2;
+            rocketGroup.add(rocketBody);
+
+            // رأس الصاروخ (مخروط)
+            const noseGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
+            const noseMat = new THREE.MeshStandardMaterial({ color: 0xff3333 });
+            const nose = new THREE.Mesh(noseGeo, noseMat);
+            nose.position.z = 2.75;
+            nose.rotation.x = Math.PI / 2;
+            rocketGroup.add(nose);
+
+            // أجنحة
+            const wingGeo = new THREE.BoxGeometry(0.2, 2, 1);
+            const wingMat = new THREE.MeshStandardMaterial({ color: 0x00c8ff });
+            
+            const wingLeft = new THREE.Mesh(wingGeo, wingMat);
+            wingLeft.position.set(-1.2, 0, -0.5);
+            rocketGroup.add(wingLeft);
+            
+            const wingRight = new THREE.Mesh(wingGeo, wingMat);
+            wingRight.position.set(1.2, 0, -0.5);
+            rocketGroup.add(wingRight);
+
+            // محرك خلفي
+            const engineGeo = new THREE.CylinderGeometry(0.6, 0.8, 1, 16);
+            const engineMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const engine = new THREE.Mesh(engineGeo, engineMat);
+            engine.rotation.x = Math.PI / 2;
+            engine.position.z = -2.5;
+            rocketGroup.add(engine);
+
+            scene.add(rocketGroup);
+
+            // --- الفيزياء والتحكم ---
+            const rocket = {
+                x: 0, y: 0, z: 0,
+                angleY: 0, // الدوران يمين ويسار (Yaw)
+                angleX: 0, // الدوران أعلى وأسفل (Pitch)
+                speed: 0,
+                maxSpeed: 15,
+                accel: 0.2
+            };
+
+            const keys = {};
+            let touchStartX = 0, touchStartY = 0;
+            let hasTouch = false;
+
+            window.addEventListener('keydown', (e) => {
+                if (['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
+                    e.preventDefault();
+                }
+                keys[e.key.toLowerCase()] = true;
+            });
+            window.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                hasTouch = true;
+            }, { passive: false });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if(!hasTouch) return;
+                const dx = e.touches[0].clientX - touchStartX;
+                const dy = e.touches[0].clientY - touchStartY;
+                
+                // تحويل حركة الإصبع إلى دوران
+                rocket.angleY -= dx * 0.005;
+                rocket.angleX -= dy * 0.005;
+                
+                // تسريع تلقائي عند السحب
+                rocket.speed = Math.min(rocket.maxSpeed, rocket.speed + 0.5);
+                
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', () => { hasTouch = false; });
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            function resize() {
+                W = container.clientWidth; H = container.clientHeight;
+                camera.aspect = W / H;
+                camera.updateProjectionMatrix();
+                renderer.setSize(W, H);
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            startBtn.addEventListener('click', () => {
+                gameState = 'playing';
+                startScreen.style.display = 'none';
+                rocket.x = 0; rocket.y = 30; rocket.z = 400; // البداية بعيداً عن الشمس
+                rocket.angleY = 0; rocket.angleX = 0;
+                rocket.speed = 0;
+            });
+
+            let nearestPlanetName = '';
+            let nearestDistance = Infinity;
+
+            function update() {
+                if (gameState !== 'playing') return;
+
+                // 1. التحكم بالكيبورد
+                if (keys['w'] || keys['arrowup']) rocket.speed = Math.min(rocket.maxSpeed, rocket.speed + rocket.accel);
+                if (keys['s'] || keys['arrowdown']) rocket.speed = Math.max(-rocket.maxSpeed/2, rocket.speed - rocket.accel);
+                if (keys['a'] || keys['arrowleft']) rocket.angleY += 0.03;
+                if (keys['d'] || keys['arrowright']) rocket.angleY -= 0.03;
+                
+                // تباطؤ طبيعي
+                rocket.speed *= 0.99;
+
+                // 2. تحديث موقع الصاروخ بناءً على الزوايا والسرعة
+                // ملاحظة: نحرك الصاروخ في اتجاه Z المحلي
+                const forwardX = Math.sin(rocket.angleY) * Math.cos(rocket.angleX);
+                const forwardY = Math.sin(rocket.angleX);
+                const forwardZ = Math.cos(rocket.angleY) * Math.cos(rocket.angleX);
+
+                rocket.x += forwardX * rocket.speed;
+                rocket.y += forwardY * rocket.speed;
+                rocket.z += forwardZ * rocket.speed;
+
+                // تحديث شكل الصاروخ
+                rocketGroup.position.set(rocket.x, rocket.y, rocket.z);
+                rocketGroup.rotation.y = rocket.angleY;
+                rocketGroup.rotation.x = -rocket.angleX; // سالب لأن محور Y في 3D معكوس
+
+                // 3. حركة الكواكب (تدور حول الشمس)
+                planets.forEach(p => {
+                    if (p.data.dist > 0) {
+                        p.angle += p.data.speed * 0.1;
+                        p.mesh.position.x = Math.cos(p.angle) * p.data.dist;
+                        p.mesh.position.z = Math.sin(p.angle) * p.data.dist;
+                    }
+                    p.mesh.rotation.y += 0.01; // دوران الكوكب حول نفسه
+                });
+
+                // 4. إيجاد أقرب كوكب
+                nearestDistance = Infinity;
+                planets.forEach(p => {
+                    const dist = Math.hypot(rocket.x - p.mesh.position.x, rocket.y - p.mesh.position.y, rocket.z - p.mesh.position.z);
+                    if (dist < nearestDistance) {
+                        nearestDistance = dist;
+                        nearestPlanetName = p.data.name;
+                    }
+                });
+
+                planetHud.textContent = '🪐 أقرب كوكب: ' + nearestPlanetName;
+                distanceHud.textContent = '📏 المسافة: ' + Math.round(nearestDistance) + ' كم';
+
+                // 5. تحديث سرعة HUD
+                const speedPercent = Math.max(0, (rocket.speed / rocket.maxSpeed) * 100);
+                speedBar.style.width = speedPercent + '%';
+                speedText.textContent = 'السرعة: ' + Math.round(speedPercent) + '%';
+
+                // 6. الكاميرا (تتبع الصاروخ من الخلف)
+                const camDist = 15;
+                const camHeight = 5;
+                
+                // حساب الموضع المطلوب للكاميرا خلف الصاروخ
+                const camTargetX = rocket.x - forwardX * camDist;
+                const camTargetY = rocket.y + camHeight;
+                const camTargetZ = rocket.z - forwardZ * camDist;
+
+                // تحرك الكاميرا بسلاسة
+                camera.position.x += (camTargetX - camera.position.x) * 0.1;
+                camera.position.y += (camTargetY - camera.position.y) * 0.1;
+                camera.position.z += (camTargetZ - camera.position.z) * 0.1;
+
+                // الكاميرا تنظر إلى الصاروخ
+                camera.lookAt(rocket.x, rocket.y, rocket.z);
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                update();
+                renderer.render(scene, camera);
+            }
+
+            // بدء التشغيل
+            camera.position.set(0, 30, 420);
+            camera.lookAt(0, 0, 0);
+            animate();
+        })();
+    </script>
+</body>
+</html>
