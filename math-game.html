@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة الرياضيات - الجمع (0-10)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+        body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+        
+        #gameContainer { position: relative; width: 100vw; height: 100vh; max-width: 500px; max-height: 800px; background: #16213e; overflow: hidden; box-shadow: 0 0 50px rgba(0, 200, 255, 0.2); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        /* الواجهة العلوية */
+        #ui { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
+        .hud { background: rgba(0, 0, 0, 0.5); border: 2px solid #00c8ff; border-radius: 12px; padding: 10px 20px; color: #00c8ff; font-size: 18px; font-weight: bold; text-shadow: 0 0 8px #00c8ff; backdrop-filter: blur(4px); }
+        #timerHud { border-color: #ff3355; color: #ff3355; text-shadow: 0 0 8px #ff3355; }
+
+        /* منطقة السؤال */
+        #questionBox { background: rgba(255, 255, 255, 0.05); border: 3px solid #00c8ff; border-radius: 20px; padding: 30px 50px; margin-bottom: 40px; box-shadow: 0 0 30px rgba(0, 200, 255, 0.2); text-align: center; }
+        #questionText { font-size: 60px; font-weight: bold; color: #fff; font-family: monospace; direction: ltr; }
+        #questionText span { color: #00c8ff; text-shadow: 0 0 15px #00c8ff; }
+
+        /* الأزرار */
+        #optionsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 80%; max-width: 400px; }
+        .option-btn { background: linear-gradient(135deg, #2a2a4a, #1a1a3a); border: 2px solid #4a4a6a; border-radius: 15px; padding: 20px; font-size: 32px; font-weight: bold; color: #fff; cursor: pointer; transition: all 0.1s; box-shadow: 0 5px 0 #111; }
+        .option-btn:active { transform: translateY(5px); box-shadow: 0 0 0 #111; }
+        .option-btn:hover { border-color: #00c8ff; background: linear-gradient(135deg, #3a3a5a, #2a2a4a); }
+        
+        /* تأثيرات الإجابة */
+        .correct { background: #00ff88 !important; border-color: #00ff88 !important; color: #000 !important; box-shadow: 0 0 30px #00ff88 !important; }
+        .wrong { background: #ff3355 !important; border-color: #ff3355 !important; color: #fff !important; box-shadow: 0 0 30px #ff3355 !important; animation: shake 0.3s; }
+        
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 50% { transform: translateX(10px); } 75% { transform: translateX(-10px); } 100% { transform: translateX(0); } }
+
+        /* شاشة البداية والنهاية */
+        #startScreen, #gameOverScreen { position: absolute; inset: 0; background: rgba(10, 10, 20, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: #fff; text-align: center; padding: 20px; backdrop-filter: blur(10px); }
+        #gameOverScreen { display: none; }
+        
+        h1 { font-size: 42px; color: #00c8ff; text-shadow: 0 0 20px #00c8ff; margin-bottom: 10px; }
+        p { font-size: 18px; color: #ccc; margin-bottom: 30px; line-height: 1.6; }
+        
+        button { padding: 15px 50px; font-size: 22px; font-weight: bold; background: linear-gradient(135deg, #00c8ff, #0066ff); border: none; border-radius: 50px; color: #fff; cursor: pointer; box-shadow: 0 0 25px rgba(0, 200, 255, 0.5); transition: transform 0.1s; }
+        button:active { transform: scale(0.95); }
+
+        .final-score { font-size: 36px; color: #00ff88; margin: 20px 0; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <!-- الواجهة العلوية -->
+        <div id="ui">
+            <div class="hud" id="scoreHud">النقاط: 0</div>
+            <div class="hud" id="timerHud">الوقت: 60s</div>
+        </div>
+
+        <!-- منطقة اللعب -->
+        <div id="gameArea" style="display: none; flex-direction: column; align-items: center; width: 100%;">
+            <div id="questionBox">
+                <div id="questionText">0 + 0 = <span>?</span></div>
+            </div>
+            <div id="optionsGrid">
+                <!-- سيتم توليد الأزرار هنا -->
+            </div>
+        </div>
+
+        <!-- شاشة البداية -->
+        <div id="startScreen">
+            <h1>🧮 لعبة الرياضيات</h1>
+            <p>اختبر سرعتك في الجمع!<br>الأرقام من 0 إلى 10<br>لديك 60 ثانية فقط!</p>
+            <button id="startBtn">ابدأ اللعب</button>
+        </div>
+
+        <!-- شاشة النهاية -->
+        <div id="gameOverScreen">
+            <h1>⏱️ انتهى الوقت!</h1>
+            <p>لقد أجبت على <span id="correctCount" style="color:#00ff88; font-weight:bold;">0</span> سؤال بشكل صحيح.</p>
+            <div class="final-score">نقاطك النهائية: <span id="finalScore">0</span></div>
+            <button id="restartBtn">العب مرة أخرى</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const startScreen = document.getElementById('startScreen');
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const gameArea = document.getElementById('gameArea');
+            const questionText = document.getElementById('questionText');
+            const optionsGrid = document.getElementById('optionsGrid');
+            const scoreHud = document.getElementById('scoreHud');
+            const timerHud = document.getElementById('timerHud');
+            const startBtn = document.getElementById('startBtn');
+            const restartBtn = document.getElementById('restartBtn');
+            const finalScoreEl = document.getElementById('finalScore');
+            const correctCountEl = document.getElementById('correctCount');
+
+            let score = 0;
+            let correctAnswers = 0;
+            let timeLeft = 60;
+            let timerInterval = null;
+            let currentAnswer = 0;
+            let isPlaying = false;
+
+            // --- توليد سؤال جمع عشوائي (من 0 إلى 10) ---
+            function generateQuestion() {
+                let num1, num2, answer;
+
+                // الجمع: الناتج لا يتجاوز 10
+                num1 = Math.floor(Math.random() * 11); // 0 إلى 10
+                num2 = Math.floor(Math.random() * (11 - num1)); // لضمان أن الناتج <= 10
+                answer = num1 + num2;
+
+                currentAnswer = answer;
+                
+                // عرض السؤال
+                questionText.innerHTML = `${num1} + ${num2} = <span>?</span>`;
+
+                // توليد الخيارات
+                generateOptions(answer);
+            }
+
+            // --- توليد الخيارات (4 خيارات، واحدة صحيحة) ---
+            function generateOptions(correct) {
+                optionsGrid.innerHTML = '';
+                let options = [correct];
+
+                // إضافة 3 خيارات خاطئة قريبة من الإجابة الصحيحة
+                while (options.length < 4) {
+                    let offset = Math.floor(Math.random() * 5) - 2; // من -2 إلى +2
+                    let wrongAnswer = correct + offset;
+                    
+                    // التأكد من أن الرقم بين 0 و 10، وغير مكرر
+                    if (wrongAnswer >= 0 && wrongAnswer <= 10 && !options.includes(wrongAnswer)) {
+                        options.push(wrongAnswer);
+                    }
+                }
+
+                // خلط الخيارات
+                options.sort(() => Math.random() - 0.5);
+
+                // إنشاء الأزرار
+                options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn';
+                    btn.textContent = opt;
+                    btn.onclick = () => checkAnswer(opt, btn);
+                    optionsGrid.appendChild(btn);
+                });
+            }
+
+            // --- التحقق من الإجابة ---
+            function checkAnswer(selected, btnElement) {
+                if (!isPlaying) return;
+
+                // تعطيل الأزرار مؤقتاً لمنع الضغط المتكرر
+                const allButtons = document.querySelectorAll('.option-btn');
+                allButtons.forEach(b => b.style.pointerEvents = 'none');
+
+                if (selected === currentAnswer) {
+                    // إجابة صحيحة
+                    btnElement.classList.add('correct');
+                    score += 10;
+                    correctAnswers++;
+                    scoreHud.textContent = `النقاط: ${score}`;
+
+                    // الانتقال للسؤال التالي بعد 300 مللي ثانية
+                    setTimeout(() => {
+                        if (isPlaying) {
+                            generateQuestion();
+                            allButtons.forEach(b => {
+                                b.classList.remove('correct', 'wrong');
+                                b.style.pointerEvents = 'auto';
+                            });
+                        }
+                    }, 300);
+                } else {
+                    // إجابة خاطئة
+                    btnElement.classList.add('wrong');
+                    // إظهار الإجابة الصحيحة
+                    allButtons.forEach(b => {
+                        if (parseInt(b.textContent) === currentAnswer) {
+                            b.classList.add('correct');
+                        }
+                    });
+
+                    // خصم نقاط (لا تقل عن 0)
+                    score = Math.max(0, score - 5);
+                    scoreHud.textContent = `النقاط: ${score}`;
+
+                    // الانتقال للسؤال التالي بعد 800 مللي ثانية
+                    setTimeout(() => {
+                        if (isPlaying) {
+                            generateQuestion();
+                            allButtons.forEach(b => {
+                                b.classList.remove('correct', 'wrong');
+                                b.style.pointerEvents = 'auto';
+                            });
+                        }
+                    }, 800);
+                }
+            }
+
+            // --- بدء اللعبة ---
+            function startGame() {
+                score = 0;
+                correctAnswers = 0;
+                timeLeft = 60;
+                isPlaying = true;
+                
+                scoreHud.textContent = 'النقاط: 0';
+                timerHud.textContent = 'الوقت: 60s';
+                timerHud.style.color = '#ff3355';
+                
+                startScreen.style.display = 'none';
+                gameOverScreen.style.display = 'none';
+                gameArea.style.display = 'flex';
+
+                generateQuestion();
+
+                // بدء المؤقت
+                clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    timerHud.textContent = `الوقت: ${timeLeft}s`;
+                    
+                    if (timeLeft <= 10) {
+                        timerHud.style.color = '#ff0000';
+                        timerHud.style.transform = 'scale(1.1)';
+                    } else {
+                        timerHud.style.transform = 'scale(1)';
+                    }
+
+                    if (timeLeft <= 0) {
+                        endGame();
+                    }
+                }, 1000);
+            }
+
+            // --- إنهاء اللعبة ---
+            function endGame() {
+                isPlaying = false;
+                clearInterval(timerInterval);
+                gameArea.style.display = 'none';
+                gameOverScreen.style.display = 'flex';
+                
+                finalScoreEl.textContent = score;
+                correctCountEl.textContent = correctAnswers;
+            }
+
+            // --- الأحداث ---
+            startBtn.addEventListener('click', startGame);
+            restartBtn.addEventListener('click', startGame);
+
+        })();
+    </script>
+</body>
+</html>
