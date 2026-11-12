@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>صالة الألعاب - OmarSalama Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background: #0f0f1a; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+        
+        h1 { font-size: 36px; color: #00c8ff; text-shadow: 0 0 20px #00c8ff; margin-bottom: 10px; text-align: center; }
+        .subtitle { color: #888; margin-bottom: 40px; font-size: 18px; }
+        
+        .games-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; width: 100%; max-width: 1000px; }
+        
+        .game-card { 
+            background: #1a1a2e; 
+            border: 2px solid #333; 
+            border-radius: 15px; 
+            padding: 20px; 
+            text-align: center; 
+            text-decoration: none; 
+            color: #fff; 
+            transition: all 0.3s; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+        }
+        
+        .game-card:hover { 
+            transform: translateY(-5px); 
+            border-color: #00c8ff; 
+            box-shadow: 0 10px 20px rgba(0, 200, 255, 0.2); 
+        }
+
+        .game-icon { font-size: 50px; margin-bottom: 15px; }
+        .game-title { font-size: 22px; font-weight: bold; margin-bottom: 10px; color: #00c8ff; }
+        .game-desc { font-size: 14px; color: #aaa; }
+        
+        .badge { background: #ff3366; color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 10px; margin-top: 15px; font-weight: bold; }
+        
+        footer { margin-top: 50px; color: #666; font-size: 14px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <h1>🎮 صالة الألعاب</h1>
+    <p class="subtitle">اختر لعبتك المفضلة وابدأ اللعب الآن!</p>
+
+    <div class="games-grid">
+        
+        <!-- لعبة السيارات -->
+        <a href="road-racer.html" class="game-card">
+            <div class="game-icon">🏎️</div>
+            <div class="game-title">Road Racer</div>
+            <div class="game-desc">تجنب السيارات على الطريق السريع</div>
+        </a>
+
+        <!-- لعبة الموتوسيكلات -->
+        <a href="moto-race.html" class="game-card">
+            <div class="game-icon">🏍️</div>
+            <div class="game-title">Moto City 3D</div>
+            <div class="game-desc">عالم مفتوح، بنزين، واستكشاف</div>
+            <div class="badge">3D</div>
+        </a>
+
+        <!-- لعبة الفضاء -->
+        <a href="space-game.html" class="game-card">
+            <div class="game-icon">🚀</div>
+            <div class="game-title">Space Explorer</div>
+            <div class="game-desc">استكشف النظام الشمسي والكواكب</div>
+            <div class="badge">3D</div>
+        </a>
+
+        <!-- لعبة الرياضيات -->
+        <a href="math-game.html" class="game-card">
+            <div class="game-icon">🧮</div>
+            <div class="game-title">Math Game</div>
+            <div class="game-desc">تحدي الجمع السريع (0-10)</div>
+            <div class="badge" style="background: #00ff88; color: #000;">تعليمي</div>
+        </a>
+
+    </div>
+
+    <footer>
+        صُنع بواسطة OmarSalama-YT &copy; 2026
+    </footer>
+
+</body>
+</html>
