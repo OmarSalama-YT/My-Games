@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة السيارات - تحكم باللمس والفأرة</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 500px;
+            max-height: 800px;
+            background: #0f0f1a;
+            overflow: hidden;
+            touch-action: none;
+            box-shadow: 0 0 40px rgba(0, 200, 255, 0.3);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .hud {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #00c8ff;
+            border-radius: 12px;
+            padding: 8px 16px;
+            color: #00c8ff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 8px #00c8ff;
+            backdrop-filter: blur(4px);
+        }
+        #speedHud {
+            direction: ltr;
+        }
+        #gameOver {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+        #gameOver h1 {
+            font-size: 36px;
+            color: #ff3355;
+            text-shadow: 0 0 20px #ff3355;
+            margin-bottom: 15px;
+        }
+        #gameOver p {
+            font-size: 22px;
+            color: #00c8ff;
+            margin-bottom: 30px;
+        }
+        #restartBtn {
+            padding: 15px 45px;
+            font-size: 22px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00c8ff, #0066ff);
+            border: none;
+            border-radius: 50px;
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 0 25px rgba(0, 200, 255, 0.6);
+            transition: transform 0.1s;
+            pointer-events: all;
+        }
+        #restartBtn:active {
+            transform: scale(0.95);
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 10;
+            border: 1px solid rgba(0, 200, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div class="hud" id="scoreHud">النقاط: 0</div>
+            <div class="hud" id="speedHud">السرعة: 0</div>
+        </div>
+        <div id="instructions">🖱️ حرّك الفأرة/إصبعك للقيادة</div>
+        <div id="gameOver">
+            <h1>💥 تحطمت!</h1>
+            <p>النقاط: <span id="finalScore">0</span></p>
+            <button id="restartBtn">🔄 إعادة اللعب</button>
+        </div>
+    </div>
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const container = document.getElementById('gameContainer');
+            const scoreHud = document.getElementById('scoreHud');
+            const speedHud = document.getElementById('speedHud');
+            const gameOverScreen = document.getElementById('gameOver');
+            const finalScore = document.getElementById('finalScore');
+            const restartBtn = document.getElementById('restartBtn');
+
+            // إعدادات اللعبة
+            const CAR_WIDTH = 40;
+            const CAR_HEIGHT = 70;
+            const ROAD_WIDTH_RATIO = 0.7; // نسبة عرض الطريق
+            const LANE_COUNT = 3;
+
+            let W, H;
+            let roadLeft, roadRight, roadWidth;
+
+            // حالة اللعبة
+            let gameState = 'playing'; // playing, gameover
+            let score = 0;
+            let baseSpeed = 4;
+            let speed = baseSpeed;
+            let player = {
+                x: 0,
+                y: 0,
+                targetX: 0,
+                width: CAR_WIDTH,
+                height: CAR_HEIGHT,
+                angle: 0
+            };
+            let obstacles = [];
+            let roadLines = [];
+            let particles = [];
+            let roadOffset = 0;
+            let spawnTimer = 0;
+            let spawnInterval = 70;
+            let frameCount = 0;
+
+            // إدخال
+            let mouseX = 0, mouseY = 0;
+            let isTouching = false;
+            let touchX = 0, touchY = 0;
+            let hasInput = false;
+
+            function resize() {
+                const rect = container.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                W = rect.width;
+                H = rect.height;
+                canvas.width = W * dpr;
+                canvas.height = H * dpr;
+                canvas.style.width = W + 'px';
+                canvas.style.height = H + 'px';
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+                roadWidth = W * ROAD_WIDTH_RATIO;
+                roadLeft = (W - roadWidth) / 2;
+                roadRight = roadLeft + roadWidth;
+
+                // إعادة ضبط اللاعب
+                if (!hasInput) {
+                    player.x = W / 2;
+                    mouseX = W / 2;
+                }
+                player.y = H - 120;
+                player.targetX = player.x;
+
+                // إنشاء خطوط الطريق
+                roadLines = [];
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 20; j++) {
+                        roadLines.push({
+                            lane: i,
+                            y: j * (H / 20)
+                        });
+                    }
+                }
+
+                // إذا كانت اللعبة انتهت لا نعيد ضبط الأشياء
+                if (gameState === 'gameover') return;
+
+                // إعادة ضبط السيارات المتعارضة
+                obstacles.forEach(o => {
+                    o.x = roadLeft + (roadWidth / LANE_COUNT) * (o.lane + 0.5);
+                });
+            }
+
+            // تحويل إحداثيات اللمس/الفأرة
+            function getInputX(clientX) {
+                const rect = canvas.getBoundingClientRect();
+                const x = clientX - rect.left;
+                return Math.max(0, Math.min(W, x));
+            }
+
+            // أحداث الفأرة
+            canvas.addEventListener('mousemove', (e) => {
+                if (gameState !== 'playing') return;
+                mouseX = getInputX(e.clientX);
+                hasInput = true;
+            });
+
+            canvas.addEventListener('mouseenter', (e) => {
+                if (gameState !== 'playing') return;
+                mouseX = getInputX(e.clientX);
+                hasInput = true;
+            });
+
+            // أحداث اللمس
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (gameState !== 'playing') return;
+                const touch = e.touches[0];
+                if (touch) {
+                    touchX = getInputX(touch.clientX);
+                    mouseX = touchX;
+                    isTouching = true;
+                    hasInput = true;
+                }
+            }, { passive: false });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (gameState !== 'playing') return;
+                const touch = e.touches[0];
+                if (touch) {
+                    touchX = getInputX(touch.clientX);
+                    mouseX = touchX;
+                    isTouching = true;
+                    hasInput = true;
+                }
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                isTouching = false;
+            }, { passive: false });
+
+            // منع القوائم اللمسية
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            // إعادة اللعب
+            function restart() {
+                gameState = 'playing';
+                score = 0;
+                speed = baseSpeed;
+                obstacles = [];
+                particles = [];
+                spawnTimer = 0;
+                frameCount = 0;
+                player.x = W / 2;
+                mouseX = W / 2;
+                hasInput = false;
+                isTouching = false;
+                gameOverScreen.style.display = 'none';
+                scoreHud.textContent = 'النقاط: 0';
+                updateSpeedHud();
+                resize();
+            }
+
+            restartBtn.addEventListener('click', restart);
+            restartBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                restart();
+            }, { passive: false });
+
+            // إنشاء سيارة معادية
+            function spawnObstacle() {
+                const lane = Math.floor(Math.random() * LANE_COUNT);
+                const laneWidth = roadWidth / LANE_COUNT;
+                const x = roadLeft + laneWidth * (lane + 0.5);
+
+                // تجنب التكرار في نفس المسار القريب
+                for (let o of obstacles) {
+                    if (o.lane === lane && o.y < 100) return;
+                }
+
+                const colors = ['#ff3355', '#ffaa00', '#ff00aa', '#aa00ff', '#00ff88'];
+                obstacles.push({
+                    x: x,
+                    y: -CAR_HEIGHT - Math.random() * 100,
+                    width: CAR_WIDTH * 0.9,
+                    height: CAR_HEIGHT * 0.9,
+                    lane: lane,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speed: 1 + Math.random() * 1.5
+                });
+            }
+
+            // تحديث السرعة
+            function updateSpeedHud() {
+                const kmh = Math.round(speed * 20);
+                speedHud.textContent = 'السرعة: ' + kmh;
+            }
+
+            // تأثيرات الانفجار
+            function createExplosion(x, y) {
+                for (let i = 0; i < 25; i++) {
+                    particles.push({
+                        x: x,
+                        y: y,
+                        vx: (Math.random() - 0.5) * 12,
+                        vy: (Math.random() - 0.5) * 12,
+                        life: 1,
+                        color: ['#ff3355', '#ffaa00', '#ff6600', '#ff0000', '#ffff00'][Math.floor(Math.random() * 5)],
+                        size: 3 + Math.random() * 5
+                    });
+                }
+            }
+
+            // تحديث اللعبة
+            function update() {
+                if (gameState === 'gameover') {
+                    // تحديث الجسيمات فقط
+                    particles.forEach(p => {
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vx *= 0.97;
+                        p.vy *= 0.97;
+                        p.life -= 0.02;
+                    });
+                    particles = particles.filter(p => p.life > 0);
+                    return;
+                }
+
+                frameCount++;
+
+                // زيادة الصعوبة تدريجياً
+                speed = baseSpeed + Math.min(8, frameCount / 600);
+                updateSpeedHud();
+
+                // حركة خطوط الطريق
+                roadOffset += speed;
+                if (roadOffset > H / 10) roadOffset -= H / 10;
+
+                // حركة اللاعب نحو هدفه
+                const targetX = hasInput ? mouseX : W / 2;
+                const maxMove = 12;
+                const diff = targetX - player.x;
+                const move = Math.max(-maxMove, Math.min(maxMove, diff * 0.2));
+                player.x += move;
+
+                // تحديد زاوية السيارة بناءً على الحركة
+                player.angle = Math.max(-0.3, Math.min(0.3, diff * 0.005));
+
+                // تقييد داخل الطريق
+                const minX = roadLeft + player.width / 2 + 5;
+                const maxX = roadRight - player.width / 2 - 5;
+                if (player.x < minX) player.x = minX;
+                if (player.x > maxX) player.x = maxX;
+
+                // إنشاء سيارات متعارضة
+                spawnTimer++;
+                if (spawnTimer >= spawnInterval) {
+                    spawnTimer = 0;
+                    spawnObstacle();
+                }
+
+                // تحديث السيارات المتعارضة
+                obstacles.forEach(o => {
+                    o.y += speed + o.speed;
+                    o.x = roadLeft + (roadWidth / LANE_COUNT) * (o.lane + 0.5);
+                });
+
+                // إزالة السيارات الخارجة
+                obstacles = obstacles.filter(o => o.y < H + 200);
+
+                // اكتشاف التصادم
+                const pw = player.width * 0.7;
+                const ph = player.height * 0.7;
+                for (let o of obstacles) {
+                    const ow = o.width * 0.7;
+                    const oh = o.height * 0.7;
+                    if (Math.abs(player.x - o.x) < (pw + ow) / 2 &&
+                        Math.abs(player.y - o.y) < (ph + oh) / 2) {
+                        // تحطم!
+                        gameState = 'gameover';
+                        createExplosion(player.x, player.y);
+                        finalScore.textContent = Math.floor(score);
+                        gameOverScreen.style.display = 'flex';
+                        break;
+                    }
+                }
+
+                // زيادة النقاط
+                score += speed * 0.1;
+
+                // تحديث واجهة النقاط
+                scoreHud.textContent = 'النقاط: ' + Math.floor(score);
+            }
+
+            // رسم السيارة
+            function drawCar(x, y, w, h, color, angle, isPlayer) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+
+                // ظل
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetY = 5;
+
+                // جسم السيارة
+                const gradient = ctx.createLinearGradient(-w/2, 0, w/2, 0);
+                gradient.addColorStop(0, color);
+                gradient.addColorStop(0.5, isPlayer ? '#00e5ff' : color);
+                gradient.addColorStop(1, color);
+                ctx.fillStyle = gradient;
+
+                // شكل السيارة (مستطيل بحواف دائرية)
+                ctx.beginPath();
+                ctx.roundRect(-w/2, -h/2, w, h, 8);
+                ctx.fill();
+
+                // إزالة الظل للأجزاء الداخلية
+                ctx.shadowColor = 'transparent';
+
+                // الزجاج الأمامي
+                ctx.fillStyle = 'rgba(150, 220, 255, 0.8)';
+                ctx.beginPath();
+                ctx.roundRect(-w*0.35, -h*0.35, w*0.7, h*0.22, 4);
+                ctx.fill();
+
+                // الزجاج الخلفي
+                ctx.fillStyle = 'rgba(100, 180, 230, 0.6)';
+                ctx.beginPath();
+                ctx.roundRect(-w*0.35, h*0.15, w*0.7, h*0.18, 4);
+                ctx.fill();
+
+                // المصابيح الأمامية
+                ctx.fillStyle = '#ffffaa';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(-w*0.3, -h*0.45, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(w*0.3, -h*0.45, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // المصابيح الخلفية
+                ctx.fillStyle = '#ff3333';
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(-w*0.3, h*0.42, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(w*0.3, h*0.42, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // خطوط على الجسم
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(-w*0.2, -h*0.1);
+                ctx.lineTo(w*0.2, -h*0.1);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-w*0.2, h*0.05);
+                ctx.lineTo(w*0.2, h*0.05);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // رسم الإطار
+            function draw() {
+                // خلفية داكنة
+                ctx.fillStyle = '#0f0f1a';
+                ctx.fillRect(0, 0, W, H);
+
+                // رسم العشب/المناطق الجانبية
+                ctx.fillStyle = '#1a2a1a';
+                ctx.fillRect(0, 0, roadLeft, H);
+                ctx.fillRect(roadRight, 0, W - roadRight, H);
+
+                // خطوط جانبية للعشب
+                ctx.strokeStyle = 'rgba(0, 255, 100, 0.1)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 30; i++) {
+                    const y = (i * 50 + roadOffset * 2) % H;
+                    ctx.beginPath();
+                    ctx.moveTo(roadLeft - 10, y);
+                    ctx.lineTo(roadLeft - 30, y + 15);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(roadRight + 10, y);
+                    ctx.lineTo(roadRight + 30, y + 15);
+                    ctx.stroke();
+                }
+
+                // الطريق
+                const roadGrad = ctx.createLinearGradient(roadLeft, 0, roadRight, 0);
+                roadGrad.addColorStop(0, '#2a2a3a');
+                roadGrad.addColorStop(0.5, '#3a3a4a');
+                roadGrad.addColorStop(1, '#2a2a3a');
+                ctx.fillStyle = roadGrad;
+                ctx.fillRect(roadLeft, 0, roadWidth, H);
+
+                // خطوط الطريق الجانبية
+                ctx.strokeStyle = '#00c8ff';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = '#00c8ff';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.moveTo(roadLeft, 0);
+                ctx.lineTo(roadLeft, H);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(roadRight, 0);
+                ctx.lineTo(roadRight, H);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // خطوط المسارات
+                const laneWidth = roadWidth / LANE_COUNT;
+                ctx.setLineDash([20, 20]);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                for (let i = 1; i < LANE_COUNT; i++) {
+                    const x = roadLeft + laneWidth * i;
+                    ctx.beginPath();
+                    ctx.moveTo(x, -roadOffset % 40);
+                    ctx.lineTo(x, H);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+
+                // رسم السيارات المتعارضة
+                obstacles.forEach(o => {
+                    drawCar(o.x, o.y, o.width, o.height, o.color, 0, false);
+                });
+
+                // رسم جسيمات الانفجار
+                particles.forEach(p => {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.shadowColor = p.color;
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+
+                // رسم اللاعب (فقط إذا لم تكن اللعبة منتهية)
+                if (gameState === 'playing') {
+                    // تأثير توهج تحت السيارة
+                    ctx.shadowColor = '#00c8ff';
+                    ctx.shadowBlur = 25;
+                    drawCar(player.x, player.y, player.width, player.height, '#00aaff', player.angle, true);
+                    ctx.shadowBlur = 0;
+                } else {
+                    // رسم حطام
+                    ctx.globalAlpha = 0.5;
+                    drawCar(player.x, player.y, player.width, player.height, '#333', 0.2, false);
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            // دالة roundRect إذا لم تكن مدعومة
+            if (!CanvasRenderingContext2D.prototype.roundRect) {
+                CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                    if (w < 2 * r) r = w / 2;
+                    if (h < 2 * r) r = h / 2;
+                    this.beginPath();
+                    this.moveTo(x + r, y);
+                    this.arcTo(x + w, y, x + w, y + h, r);
+                    this.arcTo(x + w, y + h, x, y + h, r);
+                    this.arcTo(x, y + h, x, y, r);
+                    this.arcTo(x, y, x + w, y, r);
+                    this.closePath();
+                    return this;
+                };
+            }
+
+            // حلقة اللعبة
+            function gameLoop() {
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+
+            // بدء
+            window.addEventListener('resize', resize);
+            resize();
+            gameLoop();
+
+            // إعادة ضبط عند تغيير الحجم
+            window.addEventListener('orientationchange', () => {
+                setTimeout(resize, 200);
+            });
+
+        })();
+    </script>
+</body>
+</html>
