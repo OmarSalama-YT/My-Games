@@ -129,4 +129,86 @@ npx serve
 ┣ 📜 moto-race.html       # ملف اللعبة الأساسي
 ┣ 📖 moto-race.md     # التوثيق التقني
 ┗ 📘 README.md        # هذا الملف
+```
 
+
+
+---
+
+
+# 🚀 Space Explorer 3D
+
+<div align="center">
+
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-Web-orange)
+![3D](https://img.shields.io/badge/3D-WebGL-blueviolet)
+
+**لعبة استكشاف الفضاء ثلاثية الأبعاد - انطلق بين الكواكب!**
+
+[🎮 العب الآن](#-التشغيل) • [📖 طريقة اللعب](#-طريقة-اللعب) • [🛠️ التقنيات](#-التقنيات-المستخدمة)
+
+</div>
+
+---
+
+## 🎯 عن اللعبة
+
+**Space Explorer 3D** هي لعبة استكشاف فضاء مفتوحة تعمل مباشرة في المتصفح. قُد صاروخك الفضائي في رحلة عبر النظام الشمسي، واستكشف الكواكب من عطارد إلى نبتون، وشاهد جمال زحل وحلقاته. اللعبة مصممة لتعمل بسلاسة على الهواتف الذكية وأجهزة الكمبيوتر.
+
+---
+
+## ✨ المميزات
+
+- 🪐 **نظام شمسي كامل:** استكشف الشمس و8 كواكب.
+- 🚀 **فيزياء طيران:** تحكم واقعي بالصاروخ في فضاء ثلاثي الأبعاد.
+- 🌌 **خلفية نجمية مذهلة:** أكثر من 4000 نجمة تحيط بك.
+- 📊 **واجهة ذكية:** تعرف على أقرب كوكب والمسافة إليه فوراً.
+- 📱 **متوافق مع الهاتف:** تحكم بالسحب على شاشة اللمس.
+- ⚡ **أداء عالٍ:** كود محسن يعمل على الأجهزة الضعيفة.
+
+---
+
+## 🚀 التشغيل
+
+1. قم بتحميل ملف `space-game.html`.
+2. افتحه باستخدام أي متصفح حديث (Chrome, Firefox, Safari, Edge).
+3. **ملاحظة هامة:** يجب أن يكون لديك اتصال بالإنترنت (لتحميل مكتبة الرسم 3D).
+4. اضغط على زر **"🚀 انطلق إلى الفضاء"** وابدأ الرحلة!
+
+---
+
+## 📖 طريقة اللعب
+
+| الجهاز | التحكم |
+| :--- | :--- |
+| 💻 الكمبيوتر | `W` (تسريع) / `S` (تبطئ) / `A` (يسار) / `D` (يمين) |
+| 📱 الهاتف | اسحب إصبعك على الشاشة للتحكم بالاتجاه والسرعة |
+
+### 🎯 أهداف اللعبة:
+- **استكشف:** اقترب من الكواكب لتراها عن قرب.
+- **راقب:** تابع شريط السرعة في أسفل اليسار.
+- **اكتشف:** اقرأ اسم الكوكب الأقرب والمسافة إليه في الأعلى.
+
+---
+
+## 🛠️ التقنيات المستخدمة
+
+<p align="left">
+<img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white" />
+<img src="https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white" />
+<img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" />
+<img src="https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js&logoColor=white" />
+</p>
+
+---
+
+## 📁 هيكل المشروع
+
+```text
+📦 space-explorer-3d
+┣ 📜 space-game.html  # ملف اللعبة الأساسي
+┣ 📖 space-game.md    # التوثيق التقني
+┗ 📘 README.md        # هذا الملف
+```
