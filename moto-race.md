@@ -19,6 +19,6 @@
 ## هيكل المشروع
 ```text
 moto-city-3d/
-├── index.html        # ملف اللعبة الكامل (HTML + CSS + JS + Three.js)
+├── moto-race.html        # ملف اللعبة الكامل (HTML + CSS + JS + Three.js)
 ├── moto-race.md      # هذا الملف (التوثيق التقني)
 └── README.md         # دليل المستخدم والمشروع
